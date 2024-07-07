@@ -1,0 +1,70 @@
+ARG goarg goarg
+
+# ###############################################
+# Step 1: Build the app in the correct OS:
+# ###############################################`
+
+FROM golang:1.19.5-alpine3.17 AS builder
+
+ARG goarg
+
+LABEL Author="Eli Harper"
+
+ENV PATH=$PATH:/usr/local/go/bin
+
+WORKDIR /go/src/kegwatch
+
+# Add the required certs:
+COPY Certs/CACI/* /usr/local/share/ca-certificates/
+RUN cat /usr/local/share/ca-certificates/*.crt >> /etc/ssl/certs/ca-certificates.crt && \ 
+  apk update && \ 
+  apk upgrade && \
+  # Add the required packages:
+  apk add --no-cache bash build-base git libuser libressl-dev libxml2-dev openssl pkgconfig wget zlib && \    
+  # Add Go Env Vars:
+  export GOROOT=/root/go/bin && \
+  export GOROOT_BOOTSTRAP=/usr/local/go && \
+  export GO111MODULE=on && \
+  # Bash -> default shell:
+  export SHELL="/bin/bash" && \
+  exec /bin/bash
+
+# Purpose of the first stage:
+RUN --mount=target=. \
+  --mount=type=cache,target=/root/.cache/go-build \
+  --mount=type=cache,target=/go/pkg/mod \
+  ${goarg} go build -o /go/bin/kegwatch-api main.go
+
+
+# ##################################
+#  Step 2: Build a smol image:
+# ##################################
+
+FROM alpine:3.17 AS runner
+
+# Create the working directory:
+WORKDIR /go/bin/
+
+# For easier container navigation & debugging:
+RUN echo '#!/bin/bash' >> /usr/bin/ll && \
+  echo 'ls -lthr --color=auto "$@"' >> /usr/bin/ll && \
+  chmod +x /usr/bin/ll
+
+# Copy certs in in case we need them during development:
+COPY --from=builder /usr/local/share/ca-certificates/ /usr/local/share/ca-certificates
+COPY --from=builder /usr/sbin/update-ca-certificates/ /usr/sbin/update-ca-certificates
+
+RUN cat /usr/local/share/ca-certificates/*.crt >> /etc/ssl/certs/ca-certificates.crt
+
+# Get it updated and add in the bash shell:
+RUN mkdir log && \
+  apk update && \
+  apk add --no-cache bash && \
+  bash 
+
+# Copy in the executable:
+COPY --from=builder /go/bin/kegwatch-api /go/bin/
+
+EXPOSE 8080
+
+ENTRYPOINT ["/go/bin/kegwatch-api"]

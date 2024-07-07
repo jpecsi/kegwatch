@@ -1,0 +1,52 @@
+{
+	"tap_1": [{
+		"flow_rate": 0.00098,
+		"capacity": 661,
+		"remaining": 451,
+		"beer_status": 1,
+		"sensor_status": 1,
+		"keg_id": "a1"
+	}],
+
+	"tap_2": [{
+		"flow_rate": 0.00098,
+		"capacity": 661,
+		"remaining": 451,
+		"beer_status": 1,
+		"sensor_status": 1,
+		"keg_id": "a2"
+	}],
+
+	"tap_3": [{
+		"flow_rate": 0.00098,
+		"capacity": 661,
+		"remaining": 451,
+		"beer_status": 0,
+		"sensor_status": 0,
+		"keg_id": "a3"
+	}],
+
+	"data_platform": [{
+		"status": 0,
+		"ip": "0.0.0.0",
+		"port": 8337
+		}
+	],
+
+	"mqtt": [{
+		"status": 0,
+		"ip": "0.0.0.0",
+		"port": 8080
+		}
+	],
+
+	"wifi": [{
+		"status": 0,
+		"ssid": "ssid",
+		"password": "password"
+		}
+	]
+}
+
+
+

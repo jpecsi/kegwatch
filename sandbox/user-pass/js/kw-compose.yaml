@@ -1,0 +1,65 @@
+version: '3.3'
+services:
+  database-kw:
+    container_name: database-kw
+    volumes:
+      - /opt/kegwatch/mysql:/var/lib/mysql:rw
+    ports:
+      - 10136:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=thKJTkz3Z9TQusR2
+      - MYSQL_USER=sensor
+      - MYSQL_PASSWORD=AgMfKA8B9IQufaKI
+      - MYSQL_DATABASE=kegwatch
+    restart: unless-stopped
+    image: mysql  
+  grafana-kw:
+    container_name: grafana-kw
+    volumes:
+      - /opt/kegwatch/grafana/etc:/etc/grafana:rw
+      - /opt/kegwatch/grafana/var:/var/lib/grafana:rw
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    ports:  
+      - 10180:3000
+    restart: unless-stopped
+    image: grafana/grafana-oss
+
+  api-kw:
+    container_name: api-kw
+    restart: unless-stopped
+    image: eliharper/kegwatch-api:armv8
+    ports:
+      - 10288:8080
+    environment:
+      - USER=sensor
+      - PW=AgMfKA8B9IQufaKI
+      - ADDR=database-kw
+      - DB=kegwatch
+  ui-kw:
+    container_name: ui-kw
+    restart: unless-stopped
+    image: eliharper/kegwatch-ui:armv8
+    ports:
+      - 10280:80
+  mc-kw:
+    container_name: mugclub-kw
+    restart: unless-stopped
+    image: nginx
+    ports:
+      - 10281:80
+    volumes:
+      - /home/joe/kegwatch/docker/mugclub:/usr/share/nginx/html
+  game-kw:
+    container_name: game-kw
+    restart: unless-stopped
+    image: eliharper/kw-game-svc:armv8
+    ports:
+      - 8082:8082
+    environment:
+      - USER=sensor
+      - PW=AgMfKA8B9IQufaKI
+      - ADDR=database-kw
+      - DB=kegwatch

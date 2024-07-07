@@ -1,0 +1,31 @@
+
+# ##################################
+# Build a smol image:
+# ##################################
+
+FROM alpine:3.17 AS runner
+
+# Create the working directory:
+WORKDIR /go/bin/
+
+# For easier container navigation & debugging:
+RUN echo '#!/bin/bash' >> /usr/bin/ll && \
+  echo 'ls -lthr --color=auto "$@"' >> /usr/bin/ll && \
+  chmod +x /usr/bin/ll
+
+# Copy certs in in case we need them during development:
+COPY Certs/CACI/* /usr/local/share/ca-certificates/
+RUN cat /usr/local/share/ca-certificates/*.crt >> /etc/ssl/certs/ca-certificates.crt
+
+# Get it updated and add in the bash shell:
+RUN mkdir log && \
+  apk update && \
+  apk add --no-cache bash && \
+  bash 
+
+# Copy in the executable:
+COPY kegwatch-api /go/bin/
+
+EXPOSE 8080
+
+ENTRYPOINT ["/go/bin/kegwatch-api"]

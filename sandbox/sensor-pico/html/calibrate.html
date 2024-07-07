@@ -1,0 +1,37 @@
+{{render_template('html/header.html')}}
+
+<div class="container my-3 rounded">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"> 
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+      <form method="POST">
+          <div class="form-group">
+              <label for="select_tap">Tap to Calibrate</label> 
+              <div>
+              <select id="select_tap" name="select_tap" aria-describedby="select_tapHelpBlock" required="required" class="custom-select">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+              </select> 
+              <span id="select_tapHelpBlock" class="form-text text-muted">Select the tap number you want to perform calibration on</span>
+              </div>
+          </div>
+          <div class="form-group">
+              <label for="select_numpours">Number of Pours</label> 
+              <div>
+              <select id="select_numpours" name="select_numpours" aria-describedby="select_numpoursHelpBlock" required="required" class="custom-select">
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+              </select> 
+              <span id="select_numpoursHelpBlock" class="form-text text-muted">Choose how many calibration pours you'd like to run. More pours results in more accuracy, and more to drink 🙂</span>
+              </div>
+          </div> 
+          <div class="form-group">
+              <button name="start_calibration" type="submit" class="btn btn-primary">Begin Calibration</button>
+          </div>
+          </form>
+</div>
+
+{{render_template('html/footer.html')}}
+
+
