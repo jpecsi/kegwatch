@@ -1,4 +1,0 @@
-mysql-connector-python >= 8.0.30
-PrettyTable >= 3.4.1
-paho-mqtt >= 1.6.1
-evdev >= 1.6.0
