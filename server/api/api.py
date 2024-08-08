@@ -515,7 +515,7 @@ if __name__ == '__main__':
     logging = os.getenv("CONSOLE_LOG")          # Logging to the console (True/False)
     
     # Display initial message (title/version/db info) to the console
-    print("WatchMy.Beer API Server (v0.1)\n==============================")
+    print("WatchMy.Beer API Server (v0.2)\n==============================")
     log(1, 'Connecting to database...')
     print("   Host: " + db_host + ":" + str(db_port))
     print("   User: " + db_user)
