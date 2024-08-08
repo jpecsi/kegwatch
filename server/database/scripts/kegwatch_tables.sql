@@ -1,3 +1,8 @@
+CREATE DATABASE IF NOT EXISTS `kegwatch` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
+GO
+USE `kegwatch`;
+GO
+
 CREATE TABLE tbl_keg (
     keg_id varchar(255) NOT NULL, 
     keg_name varchar(255) NOT NULL, 

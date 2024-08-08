@@ -1,0 +1,29 @@
+name: watchmybeer
+services:
+  db:
+    container_name: wmb-db
+    image: sneakypackets/watchmybeer-db:latest
+    restart: unless-stopped
+    ports:
+      - 3306:3306
+    volumes:
+      - /path/to/mysql/volume:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: kegwatch
+      MYSQL_USER: kegwatch
+      MYSQL_PASSWORD: password
+  
+  server:
+    container_name: wmb-api
+    image: sneakypackets/watchmybeer-server:latest
+    restart: unless-stopped
+    ports:
+      - 25518:25518
+    environment:
+      DB_HOST: "wmb-db"
+      DB_PORT: 3306
+      DB_NAME: "kegwatch"
+      DB_USER: "kegwatch"
+      DB_PASS: "password"
+      CONSOLE_LOG: true
