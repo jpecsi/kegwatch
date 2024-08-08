@@ -1,8 +1,9 @@
 '''
 WatchMy.Beer Server
-Version: 0.1
+Version: 0.2
 ---------------------
-Created: 08 AUG 2024
+Created: 07 AUG 2024
+Updated: 08 AUG 2024
 Author: Joe Pecsi | Sideline Data, LLC.
 '''
 
@@ -11,7 +12,10 @@ import mysql.connector
 import os, json, sys, uuid
 import time, datetime
 from datetime import date
+from dateutil.parser import parse
+from datetime import date
 from datetime import datetime
+from uuid import UUID
 from flask import Flask, request
 from waitress import serve
 from flask_cors import CORS
@@ -75,12 +79,109 @@ def db_query(q,v,m):
         # Returns the number of rows modified in the transaction
         return cursor.rowcount
 
+# Data Validation
+def validate(d):
+    # Variables
+    validated_data = {}         # Holds validated data
+    failed_validation = 0       # Couner for failed data input
+
+    # Check all of the data and make sure it is clean
+    if d.get('keg_id'):
+        try:
+            uuid_obj = UUID(d.get('keg_id'), version=4)
+            validated_data['keg_id'] = d.get('keg_id')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_id')
+
+    if d.get('keg_name'):
+        validated_data['keg_name'] = d.get('keg_name')
+
+    if d.get('keg_size'):
+        try:
+            float(d.get('keg_size'))
+            validated_data['keg_size'] = d.get('keg_size')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_size')
+
+    if d.get('keg_abv'):
+        try:
+            float(d.get('keg_abv'))
+            validated_data['keg_abv'] = d.get('keg_abv')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_abv')
+
+    if d.get('keg_tap'):
+        try:
+            int(d.get('keg_tap'))
+            validated_data['keg_tap'] = d.get('keg_tap')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_tap')
+
+    if d.get('keg_start'):
+        try:
+            parse(d.get('keg_start'))
+            validated_data['keg_start'] = d.get('keg_start')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_start')
+
+    if d.get('keg_end'):
+        try:
+            parse(d.get('keg_end'))
+            validated_data['keg_end'] = d.get('keg_end')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_end')
+
+    if d.get('keg_remain'):
+        try:
+            Decimal(d.get('keg_remain'))
+            validated_data['keg_remain'] = d.get('keg_remain')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_remain')
+
+    if d.get('keg_status'):
+        try:
+            int(d.get('keg_status'))
+            validated_data['keg_status'] = d.get('keg_status')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_status')
+
+    if d.get('pour_time'):
+        try:
+            parse(d.get('pour_time'))
+            validated_data['pour_time'] = d.get('pour_time')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: pour_time')
+
+    if d.get('pour_size'):
+        try:
+            Decimal(d.get('pour_size'))
+            validated_data['pour_size'] = d.get('pour_size')
+        except Exception:
+            failed_validation += 1
+            log(0,'Data Validation Failed: pour_size')
+
+    if d.get('pour_user'):
+        validated_data['pour_user'] = d.get('pour_user')
+
+    # Check to see if anything failed #
+    if failed_validation == 0:
+        log(1, 'All data passed validation')
+        return validated_data
+    else:
+        return False
 # =================== #
 
 
-
 # ===== API ===== #
-
 # Create the API object
 api = Flask(__name__)
 
@@ -103,10 +204,14 @@ def get_kegs(t):
             log(1,'GET /kegs/all')
 
         else:
-            sql = 'SELECT * from tbl_keg WHERE keg_id = %s'
-            values = (t,)
-            results = db_query(sql, values, 0)
-            log(1,'GET /kegs/'+ str(t))
+            if int(t):
+                sql = 'SELECT * from tbl_keg WHERE keg_id = %s'
+                values = (t,)
+                results = db_query(sql, values, 0)
+                log(1,'GET /kegs/'+ str(t))
+            else:
+                results = "Invalid tap number!"
+                log(0,'GET /kegs/'+ str(t) + ' failed - invalid tap number')
 
         # Log and return the results
         return results
@@ -121,45 +226,46 @@ def get_kegs(t):
 def post_new_keg(s):
     try:
         # Get data from the POST request
-        data = request.json
-
-        # Check to make sure there isn't already an active keg on the tap...
-        check_sql = 'SELECT keg_id FROM tbl_keg WHERE keg_tap=%s AND keg_status=1'
-        check_val = (
-            data.get('keg_tap'),
-        )
-
-        check_query = db_query(check_sql,check_val,0)
-
-        # If an active keg on the desired tap exists...
-        if check_query:
-            log(0, 'POST /kegs/create/ FAILED! Tap already has an active keg!')
-            return('Failed to create keg; tap already has an active keg!')
-        
-        # Looks like no keg is on this tap, LET'S GOOOOO
-        else:
-            # String validation to make sure only a 1 or 0 is passed (1 = active, 0 = inactive)
-            if not s.isdigit() or int(s) != 1:
-                s = 0
-
-            # Build the database query
-            sql = 'INSERT INTO tbl_keg (keg_id, keg_name, keg_size, keg_abv, keg_tap, keg_start, keg_remain, keg_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)'
-            values = (
-                str(uuid.uuid4()),
-                data.get('keg_name'),
-                data.get('keg_size'),
-                data.get('keg_abv'),
+        data = validate(request.json)
+        if data:
+            # Check to make sure there isn't already an active keg on the tap...
+            check_sql = 'SELECT keg_id FROM tbl_keg WHERE keg_tap=%s AND keg_status=1'
+            check_val = (
                 data.get('keg_tap'),
-                data.get('keg_start'),
-                data.get('keg_size'),
-                int(s)
             )
 
-            # Execute the query
-            db_query(sql,values,1)
-            log(1,'POST /kegs/create: ' + data.get('keg_name'))
-            return ('Created keg: ' + data.get('keg_name'))
-        
+            check_query = db_query(check_sql,check_val,0)
+
+            # If an active keg on the desired tap exists...
+            if check_query:
+                log(0, 'POST /kegs/create/ FAILED! Tap already has an active keg!')
+                return('Failed to create keg; tap already has an active keg!')
+            
+            # Looks like no keg is on this tap, LET'S GOOOOO
+            else:
+                # String validation to make sure only a 1 or 0 is passed (1 = active, 0 = inactive)
+                if not s.isdigit() or int(s) != 1:
+                    s = 0
+
+                # Build the database query
+                sql = 'INSERT INTO tbl_keg (keg_id, keg_name, keg_size, keg_abv, keg_tap, keg_start, keg_remain, keg_status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)'
+                values = (
+                    str(uuid.uuid4()),
+                    data['keg_name'],
+                    data['keg_size'],
+                    data['keg_abv'],
+                    data['keg_tap'],
+                    data['keg_start'],
+                    data['keg_size'],
+                    int(s)
+                )
+
+                # Execute the query
+                db_query(sql,values,1)
+                log(1,'POST /kegs/create: ' + data['keg_name'])
+                return ('Created keg: ' + data['keg_name'])
+        else:
+            return json.dumps({'response':'Invalid data'})
     # Gracefully handle failure, please :)
     except Exception as e:
         log(0, 'POST /kegs/create failed: ' + str(e))
@@ -171,19 +277,23 @@ def post_new_keg(s):
 def delete_keg():
     try: 
         # Get data from the DELETE request
-        data = request.json
+        data = validate(request.json)
 
-        # Build the query
-        sql = 'DELETE FROM tbl_keg WHERE keg_id=%s'
-        values = (data.get('keg_id'),)
+        if data:
+            # Build the query
+            sql = 'DELETE FROM tbl_keg WHERE keg_id=%s'
+            values = (data['keg_id'],)
+            
+            # Execute the query, make sure it worked...
+            if (db_query(sql,values,1)):
+                log(1,'Successfully deleted keg: ' + str(data['keg_id']))
+                return ('Deleted Keg: ' + data['keg_id'])
+            else:
+                log(0,'No changes made to keg id: ' + str(data['keg_id']))
+                return ('No changes made to keg id: ' + data['keg_id'])
         
-        # Execute the query, make sure it worked...
-        if (db_query(sql,values,1)):
-            log(1,'Successfully deleted keg: ' + str(data.get('keg_id')))
-            return ('Deleted Keg: ' + data.get('keg_id'))
         else:
-            log(0,'No changes made to keg id: ' + str(data.get('keg_id')))
-            return ('No changes made to keg id: ' + data.get('keg_id'))
+            return json.dumps({'response':'Invalid data'})
     
     # Gracefully handle failure, please :)
     except Exception as e:
@@ -195,23 +305,25 @@ def delete_keg():
 def put_kick_keg():
     try:
         # Get data from the DELETE request
-        data = request.json
+        data = validate(request.json)
 
-        # Kick the keg
-        sql = 'UPDATE tbl_keg SET keg_end = %s, keg_remain=0, keg_status=0 WHERE keg_id = %s'
-        values = (
-            str(date.today()), 
-            data.get('keg_id')
-        )
+        if data:
+            # Kick the keg
+            sql = 'UPDATE tbl_keg SET keg_end = %s, keg_remain=0, keg_status=0 WHERE keg_id = %s'
+            values = (
+                str(date.today()), 
+                data['keg_id']
+            )
 
-        # Execute the query, make sure it worked...
-        if (db_query(sql,values,1)):
-            log(1,'Successfully kicked keg: ' + str(data.get('keg_id')))
-            return ('Kicked Keg: ' + data.get('keg_id'))
+            # Execute the query, make sure it worked...
+            if (db_query(sql,values,1)):
+                log(1,'Successfully kicked keg: ' + str(data['keg_id']))
+                return ('Kicked Keg: ' + data['keg_id'])
+            else:
+                log(0,'No changes made to keg id: ' + str(data['keg_id']))
+                return ('No changes made to keg id: ' + data['keg_id'])
         else:
-            log(0,'No changes made to keg id: ' + str(data.get('keg_id')))
-            return ('No changes made to keg id: ' + data.get('keg_id'))
-    
+            return json.dumps({'response':'Invalid data'})
 
     # Gracefully handle failure, please :)
     except Exception as e:
@@ -220,32 +332,35 @@ def put_kick_keg():
 
 
 # Update a Keg
-@api.route('/kegs/update/<k>', methods=['PUT'])
-def put_update_keg(k):
+@api.route('/kegs/update/', methods=['PUT'])
+def put_update_keg():
     try:
         # Get data from the POST request
-        data = request.json
+        data = validate(request.json)
 
-        # Build the database query
-        sql = 'UPDATE tbl_keg SET keg_name=%s, keg_size=%s, keg_abv=%s, keg_tap=%s, keg_start=%s, keg_remain=%s, keg_status=%s WHERE keg_id=%s'
-        values = (
-            data.get('keg_name'),
-            data.get('keg_size'),
-            data.get('keg_abv'),
-            data.get('keg_tap'),
-            data.get('keg_start'),
-            data.get('keg_remain'),
-            data.get('keg_status'),
-            k
-        )
+        if data:
+            # Build the database query
+            sql = 'UPDATE tbl_keg SET keg_name=%s, keg_size=%s, keg_abv=%s, keg_tap=%s, keg_start=%s, keg_remain=%s, keg_status=%s WHERE keg_id=%s'
+            values = (
+                data['keg_name'],
+                data['keg_size'],
+                data['keg_abv'],
+                data['keg_tap'],
+                data['keg_start'],
+                data['keg_remain'],
+                data['keg_status'],
+                data['keg_id']     
+            )
 
-        # Execute the query, make sure it worked...
-        if (db_query(sql,values,1)):
-            log(1,'POST /kegs/update/' + str(k))
-            return ('Updated keg: ' + str(k))
+            # Execute the query, make sure it worked...
+            if (db_query(sql,values,1)):
+                log(1,'POST /kegs/update/' + str(data['keg_id']))
+                return ('Updated keg: ' + str(data['keg_id']))
+            else:
+                log(0,'No changes made to keg id:' + str(data['keg_id']))
+                return ('No changes made to keg id: ' + str(data['keg_id']))
         else:
-            log(0,'No changes made to keg id:' + str(k))
-            return ('No changes made to keg id: ' + str(k))
+            return json.dumps({'response':'Invalid data'})
     
     # Gracefully handle failure, please :)
     except Exception as e:
@@ -255,30 +370,35 @@ def put_update_keg(k):
 
 # == Pour Management == #
 # List the pours (all or by keg/tap)
-@api.route('/pours/list/<select>/<id>', methods=['GET'])
-def get_pours(select,id):
+@api.route('/pours/list/<select>', methods=['GET'])
+def get_pours(select):
     try:
         # List all pours
         if select == 'all':
             results = db_query('SELECT * FROM tbl_pour LIMIT 100', None, 0)
             log(1,'GET /pours/list/all')
+            return results
         
-        # List pours by a specific tap
-        elif select == 'tap':
-            sql = 'SELECT * FROM tbl_pour WHERE keg_tap = %s'
-            values = (id,)
-            results = db_query(sql, values, 0)
-            log(1,'GET /pours/list/' + str(id))
-        
-        # List pours by a specific keg
-        elif select == 'keg':
-            sql = 'SELECT * FROM tbl_pour WHERE keg_id = %s'
-            values = (id,)
-            results = db_query(sql, values, 0)
-            log(1,'GET /pours/list/' + str(id))
-
-        # Log and return the results
-        return results
+        else:
+            data = validate(request.json)
+            if data:
+                # List pours by a specific tap
+                if select == 'tap':
+                    sql = 'SELECT * FROM tbl_pour WHERE keg_tap = %s'
+                    values = (data['id'],)
+                    results = db_query(sql, values, 0)
+                    log(1,'GET /pours/list/' + str(data['id']))
+                
+                # List pours by a specific keg
+                elif select == 'keg':
+                    sql = 'SELECT * FROM tbl_pour WHERE keg_id = %s'
+                    values = (data['id'],)
+                    results = db_query(sql, values, 0)
+                    log(1,'GET /pours/list/' + str(data['id']))
+                
+                return results
+            else:
+                return json.dumps({'response':'Invalid data'})
 
     # Gracefully handle failure, please :)
     except Exception as e:
@@ -287,54 +407,60 @@ def get_pours(select,id):
 
 
 # Create a new pour
-@api.route('/pours/create/<t>', methods=['POST'])
-def post_new_pour(t):
+@api.route('/pours/create/', methods=['POST'])
+def post_new_pour():
     # Make sure a valid tap number was provided
-    if t.isdigit():
-        data = request.json
+    data = validate(request.json)
 
+    if data:
         # Build the queries
         insert_sql = 'INSERT INTO tbl_pour (keg_id,keg_tap,pour_time,pour_size,pour_user) VALUES (%s,%s,%s,%s,%s)'
         select_sql = 'SELECT keg_id, keg_remain FROM tbl_keg WHERE keg_tap=%s AND keg_status=1'
-        select_val = (t,)
+        select_val = (data['keg_tap'],)
 
         # Get the keg in question to update the remaining beer
         select_query = db_query(select_sql,select_val,0)
-
-        insert_val = (
-            select_query[0][0],
-            t,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            data.get('pour_size'),
-            data.get('pour_user')
-        )
-
-        # Execute the queries
-        if (db_query(insert_sql,insert_val,1)):
-            log(1,'POST /pours/create/' + str(t))
-
-            # Update remaining beer
-            update_sql = 'UPDATE tbl_keg SET keg_remain=%s WHERE keg_id=%s'
-            update_val = (
-                select_query[0][1] - Decimal(data.get('pour_size')),
-                select_query[0][0]
+        if select_query:
+            insert_val = (
+                select_query[0][0],
+                data['keg_tap'],
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                data['pour_size'],
+                data['pour_user']
             )
 
-            # Execute the query, make sure it worked...
-            if (db_query(update_sql,update_val,1)):
-                remain = select_query[0][1] - Decimal(data.get('pour_size'))
-                log(1,'Pour logged for Keg: ' + str(select_query[0][0]) + ' | Beer remaining: ' + str(remain) + ' oz')
+            # Execute the queries
+            if (db_query(insert_sql,insert_val,1)):
+                log(1,'POST /pours/create/' + str(data['keg_tap']))
+
+                # Update remaining beer
+                update_sql = 'UPDATE tbl_keg SET keg_remain=%s WHERE keg_id=%s'
+                update_val = (
+                    select_query[0][1] - Decimal(data['pour_size']),
+                    select_query[0][0]
+                )
+
+                # Execute the query, make sure it worked...
+                if (db_query(update_sql,update_val,1)):
+                    remain = select_query[0][1] - Decimal(data['pour_size'])
+                    log(1,'Pour logged for Keg: ' + str(select_query[0][0]) + ' | Beer remaining: ' + str(remain) + ' oz')
+                    return json.dumps({'response':'Successfully added pour!'})
+                else:
+                    log(0, 'Failed to update the keg remaining!')
+
+            # Report back if the pour fails to log
             else:
-                log(0, 'Failed to update the keg remaining!')
-        # Report back if the pour fails to log
+                log(0,'Failed to log new pour')
+                return ('Failed to log new pour')
+            
         else:
-            log(0,'Failed to log new pour')
-            return ('Failed to log new pour')
+            log(0, 'Keg not found on tap')
+            return json.dumps({'response':'Keg not found on tap'})
         
     # Scold the user for providing an invalid tap
     else:
-        log(0, 'POST /pours/create/' + str(t) + ' failed; invalid tap')
-        return json.dumps({'response':'Invalid tap ID'})
+        log(0, 'POST /pours/create/ failed - invalid data')
+        return json.dumps({'response':'Invalid data'})
 
 
 # Modify/delete an existing pour
@@ -342,41 +468,43 @@ def post_new_pour(t):
 def modify_existing_pour(action):
 
     # Get request data
-    data = request.json
+    data = validate(request.json)
+    if data:
+        if request.method == 'PUT':
+            # Update existing pour
+            update_sql = 'UPDATE tbl_pour SET pour_size=%s, pour_user=%s WHERE pour_time=%s AND keg_id=%s'
+            update_val = (
+                data['pour_size'],
+                data['pour_user'],
+                data['pour_time'],
+                data['keg_id']
+            )
 
-    if request.method == 'PUT':
-        # Update existing pour
-        update_sql = 'UPDATE tbl_pour SET pour_size=%s, pour_user=%s WHERE pour_time=%s AND keg_id=%s'
-        update_val = (
-            data.get('pour_size'),
-            data.get('pour_user'),
-            data.get('pour_time'),
-            data.get('keg_id')
-        )
+            if (db_query(update_sql,update_val,1)):
+                log(1,'PUT /pours/modify - Updated the pour')
+            else:
+                log(0, 'PUT /pours/modify - Failed to update')
 
-        if (db_query(update_sql,update_val,1)):
-            log(1,'PUT /pours/modify - Updated the pour')
-        else:
-            log(0, 'PUT /pours/modify - Failed to update')
+        elif request.method == 'DELETE':
+            # Delete existing pour
+            del_sql = 'DELETE FROM tbl_pour WHERE pour_time=%s AND keg_id=%s'
+            del_val = (
+                data['pour_time'],
+                data['keg_id']
+            )
 
-    elif request.method == 'DELETE':
-        # Delete existing pour
-        del_sql = 'DELETE FROM tbl_pour WHERE pour_time=%s AND keg_id=%s'
-        del_val = (
-            data.get('pour_time'),
-            data.get('keg_id')
-        )
-
-        if (db_query(del_sql,del_val,1)):
-            log(1,'PUT /pours/modify - Deleted the pour')
-        else:
-            log(0, 'PUT /pours/modify - Failed to delete')
+            if (db_query(del_sql,del_val,1)):
+                log(1,'PUT /pours/modify - Deleted the pour')
+            else:
+                log(0, 'PUT /pours/modify - Failed to delete')
+    else:
+        return json.dumps({'response':'Invalid data'})
     
 # =============== #
 
 
-# ===== Main ===== #
 
+# ===== Main ===== #
 if __name__ == '__main__':
     # Environment variables for database connection
     db_host = os.getenv("DB_HOST", "<blank>")   # Database Host
