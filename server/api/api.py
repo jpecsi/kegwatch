@@ -3,13 +3,13 @@ WatchMy.Beer Server
 Version: 0.2
 ---------------------
 Created: 07 AUG 2024
-Updated: 08 AUG 2024
+Updated: 09 AUG 2024
 Author: Joe Pecsi | Sideline Data, LLC.
 '''
 
 # ===== Libraries ===== #
 import mysql.connector
-import os, json, sys, uuid
+import os, json, sys, uuid, re
 import time, datetime
 from datetime import date
 from dateutil.parser import parse
@@ -95,8 +95,12 @@ def validate(d):
             log(0,'Data Validation Failed: keg_id')
 
     if d.get('keg_name'):
-        validated_data['keg_name'] = d.get('keg_name')
-
+        if (re.fullmatch(re.compile(r"[0-9a-zA-Z\s']+"),d.get('keg_name'))):
+            validated_data['keg_name'] = d.get('keg_name')
+        else:
+            failed_validation += 1
+            log(0,'Data Validation Failed: keg_id')
+            
     if d.get('keg_size'):
         try:
             float(d.get('keg_size'))
@@ -170,7 +174,11 @@ def validate(d):
             log(0,'Data Validation Failed: pour_size')
 
     if d.get('pour_user'):
-        validated_data['pour_user'] = d.get('pour_user')
+        if (re.fullmatch(re.compile(r"[a-zA-Z\s']+"),d.get('pour_user'))):
+            validated_data['pour_user'] = d.get('pour_user')
+        else:
+            failed_validation += 1
+            log(0,'Data Validation Failed: pour_user')
 
     # Check to see if anything failed #
     if failed_validation == 0:
