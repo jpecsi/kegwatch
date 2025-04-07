@@ -3,7 +3,7 @@ What is KegWatch? KegWatch is a device I designed and built to monitor my kegera
 
 KegWatch is a unique approach to this problem because it is non-invasive. No electronics inside the kegerator and nothing that sits in the beer lines. You can use KegWatch without making any modifications to your home system! The device sits on top of the tower and uses linear hall sensors to monitor the tap handles and measure how far away they are from the unit. Draft beer setups are closed systems with constant pressure; beer is drawn from the bottom of a keg and all of the empty space is replaced with CO2. In theory, the flow rate should remain the same from the first beer to the last! Using time to calculate flow rate is **not** 100% accurate, but it is most definitely close enough (especially for home use). I'm continuing to make adjustments/improvements for accuracy but in recent tests with a 672oz keg, when it kicked I was only off by a total of 6oz.
 
-[You can read more about the project here](https://joepecsi.com/projects/kegwatch) on my personal website. I plan to keep everything open source, so this repo will house the sensor code, schematics for the hardware, as well as code/packages for the server side functionality.
+I plan to keep everything open source, so this repo will house the sensor code, schematics for the hardware, as well as code/packages for the server side functionality.
 
 
 ## Platform
